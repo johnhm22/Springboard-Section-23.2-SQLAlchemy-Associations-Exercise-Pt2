@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 from app import app
-from models import db, User
+from models import db, User, Post
 
 # Using test database
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql:///blogly_test'
@@ -21,6 +21,7 @@ class UserViewsTestCase(TestCase):
     def setUp(self):
         """Add sample pet."""
 
+        Post.query.delete()
         User.query.delete()
 
         user = User(first_name="Jeremy", last_name="Johnson", image_url="")
@@ -36,6 +37,17 @@ class UserViewsTestCase(TestCase):
         db.session.commit()
 
         self.user2_id = user2.id
+
+
+        post = Post(title = 'Test title', content = 'Contents provided for test purposes', user_id = user.id)
+        # add and commit a test post
+        db.session.add(post)
+        db.session.commit()
+
+        self.post_id = post.id
+
+
+
 
     def tearDown(self):
         """Clean up any fouled transaction."""
@@ -93,8 +105,56 @@ class UserViewsTestCase(TestCase):
             self.assertEqual(resp.status_code, 200)
             self.assertIn("Alkesh Singh", html)
 
-    
+#Part 2 of exercise: posts
 
+    def test_post_title(self):
+        # list a specific user and test for the presence of a post title 
+        with app.test_client() as client:
+            resp = client.get(f"/users/{self.user_id}")
+            html = resp.get_data(as_text=True)
+
+            self.assertEqual(resp.status_code, 200)
+            self.assertIn('Test title', html)
+
+    def test_new_post_form(self):
+# test for presence of new post form
+        with app.test_client() as client:
+            resp = client.get(f"/users/{self.user_id}/posts/new")
+            html = resp.get_data(as_text=True)
+
+            self.assertEqual(resp.status_code, 200)
+            self.assertIn('<h2>Add Post for Jeremy Johnson</h2>', html)
+
+
+    def test_post_details(self):
+        # list details of a post for a user and test for the presence of the post contents 
+        with app.test_client() as client:
+            resp = client.get(f"/posts/{self.post_id}")
+            html = resp.get_data(as_text=True)
+
+            self.assertEqual(resp.status_code, 200)
+            self.assertIn('Contents provided for test purposes', html)
+
+
+    def test_add_new_post(self):
+# test addition of a post
+        with app.test_client() as client:
+            d = {"title": "Second test title", "content": "Contents for second post", "user_id": "2"}
+            resp = client.post(f"/users/{self.user2_id}/posts/new", data=d, follow_redirects=True) # this is producing a 400 error
+            html = resp.get_data(as_text=True)
+
+            self.assertEqual(resp.status_code, 200)
+            self.assertIn('<h1>Rishi Sunak</h1>', html)
+
+
+
+    def test_delete_post(self):
+# test delete of a post
+        with app.test_client() as client:
+            resp = client.get(f"/posts/{self.post_id}/delete")
+            html = resp.get_data(as_text=True)
+
+            self.assertEqual(resp.status_code, 302)
 
 
 
